@@ -1,16 +1,29 @@
 #include <omp.h>
+#include <fstream>
 #include <iostream>
+#include <vector>
 #include <cstdlib>
 #include <ctime>
 // #include <stdio.h>
+using namespace std;
 
-void printm(double ** m, int n){
-    for(int i=0; i<n; i++){
-        for(int j=0; j<n; j++){
-            printf("%.3f ", m[i][j]);
+
+void printm(double ** m, int n, string filename){
+    std::ofstream out;                  // поток для записи
+    out.open(filename);                 // открываем файл для записи
+    if (out.is_open())
+    {
+        for(int i=0; i<n; i++){
+            for(int j=0; j<n; j++){
+                out << m[i][j] << " ";
+            }
+            out << endl;
         }
-        printf("\n");
     }
+    else{
+        cout << "Не удалось открыть файл \n";
+    }
+    out.close();                      // закрываем файл
 }
 
 double ** init_matrix(int n) {
@@ -31,19 +44,20 @@ double ** ones(int n){
     return ones;
 }
 
-double ** set_values(double** a, double fMin, double fMax, int n){
-    for(int i=0; i<n; i++){
-        for(int j=0; j<n; j++){
-            double f = (double)rand() / RAND_MAX;
-            a[i][j] = fMin + f * (fMax - fMin);
+double** set_values(int n, int max, int min) {
+    double** matrix = new double*[n];
+    for (int i = 0; i < n; ++i) {
+        matrix[i] = new double[n];
+        for (int j = 0; j < n; ++j) {
+            matrix[i][j] = (double)(rand())/RAND_MAX*(max - min) + min;
         }
     }
-    return a;
+    return matrix;
 }
 
 double ** matmul(double** a, double** b, int n) {
     
-    double** res = init_matrix(n);
+    double** res = init_matrix(n);                          //общая переменная, используется всеми потоками
     int i, j, k;
     
     #pragma omp parallel for private(i,j,k) shared(a,b,res)
@@ -86,41 +100,37 @@ double calculate(double** B, double** C, double** E, double** D,int n){
     double** BD = matmul(B, D, n);
     double** result = sum_all(B3, C2E, BD, n);
     tim = omp_get_wtime()-tim;
-    // printf("\nRESULT\n");
-    // printm(result, n);
+    printm(result, n, "result.txt");
     return tim;
 }
 
 int main(){
     int n = 100;
+    // int numt = 10;
     
     //диапазон рандомных чисел
     int fMin = 1; 
     int fMax = 10; 
     
     //заполняем матрицы
-    double** B = init_matrix(n);
-    B = set_values(B, fMin, fMax, n);
-    double** C = init_matrix(n);
-    C = set_values(B, fMin, fMax, n);
-    double** D = init_matrix(n);
-    D = set_values(B, fMin, fMax, n);
+    double** B = set_values(n, fMax, fMin);
+    printm(B, n, "B.txt");
+    double** C = set_values(n, fMax, fMin);
+    printm(C, n, "C.txt");
+    double** D = set_values(n, fMax, fMin);
+    printm(D, n, "D.txt");
     double** E = ones(n);
+    printm(E, n, "E.txt");
 
+    for (int thr=1; thr<11; thr++){
+        for(int i=0; i<3; i++){
+            double cur_result;
+            omp_set_num_threads(thr);
+            cur_result = calculate(B, C, E, D, n);
+            printf("Threads: %d; Elapsed time: %.4f\n", thr, cur_result);
+        }
+    }
+    
 
-    int numt = 1;
-    double prev_result = 0;
-    double cur_result = 100;
-    do {
-        omp_set_num_threads(numt);
-        prev_result = cur_result;
-        cur_result = calculate(B, C, E, D, n);
-        printf("Threads: %d; Elapsed time: %f\n", numt, cur_result);
-        numt++;
-    } while (cur_result < prev_result);
-
-    
-    
-    
     return 0;
 }

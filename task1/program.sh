@@ -1,5 +1,5 @@
 #!/bin/bash
 
 #compile
-gcc-13 -fopenmp please.c
-./a.out
+gcc -lstdc++ -fopenmp parallel.cpp -o parallel.out
+./parallel.out
